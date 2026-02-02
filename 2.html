@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Friends Chat</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  margin:0;
+  font-family: Arial, sans-serif;
+  background:#e5ddd5;
+}
+
+/* LOGIN PAGE */
+#loginPage {
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#075E54;
+}
+
+.login-box {
+  background:white;
+  padding:25px;
+  width:300px;
+  border-radius:8px;
+  text-align:center;
+}
+
+.login-box input, .login-box button {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+}
+
+.login-box button {
+  background:#25D366;
+  border:none;
+  color:white;
+  font-weight:bold;
+}
+
+/* CHAT PAGE */
+#chatPage {
+  display:none;
+  height:100vh;
+}
+
+header {
+  background:#075E54;
+  color:white;
+  padding:12px;
+  text-align:center;
+}
+
+.container {
+  max-width:500px;
+  margin:auto;
+  height:calc(100vh - 50px);
+  display:flex;
+  flex-direction:column;
+  background:white;
+}
+
+.stories {
+  padding:10px;
+  background:#f5f5f5;
+}
+
+.chat {
+  flex:1;
+  padding:10px;
+  overflow-y:auto;
+  background:#efeae2;
+}
+
+.msg {
+  padding:8px;
+  border-radius:8px;
+  margin-bottom:5px;
+  max-width:80%;
+  background:white;
+}
+
+.me {
+  background:#dcf8c6;
+  margin-left:auto;
+}
+
+input, textarea, button {
+  width:100%;
+  padding:10px;
+  margin-top:5px;
+}
+
+button {
+  background:#25D366;
+  border:none;
+  color:white;
+  font-weight:bold;
+}
+
+.small {
+  font-size:12px;
+  color:#555;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage">
+  <div class="login-box">
+    <h2>💬 Friends Chat</h2>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="register()">Register</button>
+    <button onclick="login()">Login</button>
+    <p id="loginMsg" class="small"></p>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chatPage">
+  <header>
+    Friends Chat<br>
+    <span class="small" id="userEmail"></span>
+  </header>
+
+  <div class="container">
+
+    <div class="stories">
+      <textarea id="storyInput" placeholder="Share a story..."></textarea>
+      <button onclick="postStory()">Post Story</button>
+      <div id="stories"></div>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div>
+      <input id="msgInput" placeholder="Type a message...">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+/* 🔴 PASTE YOUR FIREBASE CONFIG HERE */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  appId: "APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+
+/* AUTH STATE */
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    loginPage.style.display = "none";
+    chatPage.style.display = "block";
+    userEmail.innerText = user.email;
+  } else {
+    loginPage.style.display = "flex";
+    chatPage.style.display = "none";
+  }
+});
+
+/* REGISTER */
+function register() {
+  auth.createUserWithEmailAndPassword(email.value, password.value)
+    .catch(e => loginMsg.innerText = e.message);
+}
+
+/* LOGIN */
+function login() {
+  auth.signInWithEmailAndPassword(email.value, password.value)
+    .catch(e => loginMsg.innerText = e.message);
+}
+
+/* STORIES */
+function postStory() {
+  if (!storyInput.value) return;
+  db.collection("stories").add({
+    email: currentUser.email,
+    text: storyInput.value,
+    time: Date.now()
+  });
+  storyInput.value = "";
+}
+
+db.collection("stories").orderBy("time","desc")
+.onSnapshot(snap => {
+  stories.innerHTML = "";
+  snap.forEach(doc => {
+    let s = doc.data();
+    stories.innerHTML += `
+      <div class="small"><b>${s.email}</b><br>${s.text}</div><hr>`;
+  });
+});
+
+/* CHAT */
+function sendMessage() {
+  if (!msgInput.value) return;
+  db.collection("chat").add({
+    email: currentUser.email,
+    text: msgInput.value,
+    time: Date.now()
+  });
+  msgInput.value = "";
+}
+
+db.collection("chat").orderBy("time")
+.onSnapshot(snap => {
+  chat.innerHTML = "";
+  snap.forEach(doc => {
+    let m = doc.data();
+    let cls = m.email === currentUser.email ? "msg me" : "msg";
+    chat.innerHTML += `
+      <div class="${cls}">
+        <div class="small">${m.email}</div>
+        ${m.text}
+      </div>`;
+  });
+  chat.scrollTop = chat.scrollHeight;
+});
+</script>
+
+</body>
+</html>
